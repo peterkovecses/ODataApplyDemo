@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using ODataApplyDemo.Attributes;
 using ODataApplyDemo.Models;
@@ -13,9 +12,7 @@ public class WeatherForecastController : ODataController
         "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
     };
 
-    // https://localhost:7109/odata/WeatherForecast?$apply=groupby((TemperatureC))
-    // https://localhost:7109/odata/WeatherForecast?$apply=groupby((TemperatureC),aggregate($count%20as%20Count))
-    public IActionResult Get(ODataQueryOptions<WeatherForecast> queryOptions)
+    public IActionResult Get()
     {
         var forecast = Enumerable.Range(1, 5).Select(index => new WeatherForecast
         {
