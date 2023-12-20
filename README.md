@@ -27,7 +27,8 @@ I monitor the marker header in a middleware, and if it appears, I wrap the value
 ![image](https://github.com/peterkovecses/ODataApplyDemo/assets/89272499/a9778261-e946-4600-a215-4959e89351d4)
 
 In addition, I only had to register the middleware:
-app.UseMiddleware<ODataApplyPatchMiddleware>();
+
+![image](https://github.com/peterkovecses/ODataApplyDemo/assets/89272499/0ffbc4d0-400d-4a58-92eb-dda1ad2bdc6a)
 
 And the results:
 
