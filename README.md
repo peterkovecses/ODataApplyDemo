@@ -17,26 +17,27 @@ I saw that the issue had already been reported, but I needed a quick solution.
 I found that if the return value of the controller method is IEnumerable<T> or IQueriable<T> instead of IActionResult or ActionResult<T>, the response is in the correct format, but that was not an option for me, I had to find another solution. As a first step, I derived it from the EnableQueryAttribute class, and in the case of $apply, I added a marker key-value pair to the response header:
 
 '''
-public class CustomEnableQuery : EnableQueryAttribute
-{
-    private HttpContext? _httpContext;
 
-    public override IQueryable ApplyQuery(IQueryable queryable, ODataQueryOptions queryOptions)
+    public class CustomEnableQuery : EnableQueryAttribute
     {
-        if (queryOptions.Apply is not null)
+        private HttpContext? _httpContext;
+    
+        public override IQueryable ApplyQuery(IQueryable queryable, ODataQueryOptions queryOptions)
         {
-            _httpContext!.Response.Headers.TryAdd(HeaderKeys.ODataApplyPatch, "1");
+            if (queryOptions.Apply is not null)
+            {
+                _httpContext!.Response.Headers.TryAdd(HeaderKeys.ODataApplyPatch, "1");
+            }
+            
+            return queryOptions.ApplyTo(queryable);
         }
-        
-        return queryOptions.ApplyTo(queryable);
+    
+        public override void ValidateQuery(HttpRequest request, ODataQueryOptions queryOptions)
+        {
+            _httpContext = request.HttpContext;
+            base.ValidateQuery(request, queryOptions);
+        }
     }
-
-    public override void ValidateQuery(HttpRequest request, ODataQueryOptions queryOptions)
-    {
-        _httpContext = request.HttpContext;
-        base.ValidateQuery(request, queryOptions);
-    }
-}
 '''
 
 Next, I created a wrapper class:
