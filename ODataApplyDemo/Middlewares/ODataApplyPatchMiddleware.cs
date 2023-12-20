@@ -25,13 +25,13 @@ public class ODataApplyPatchMiddleware(RequestDelegate next)
         await FinalizeResponseBody(updatedBodyStream, originalResponseBodyStream, response);
     }
 
-    private static async Task UpdateResponseBodyAsync(HttpResponse response, Stream updatedBodyStream, string fullUrl)
+    private static async Task UpdateResponseBodyAsync(HttpResponse response, Stream updatedBodyStream, string requestUrl)
     {
         var stream = response.Body;
         updatedBodyStream.Seek(0, SeekOrigin.Begin);
         var responseBody = await new StreamReader(updatedBodyStream).ReadToEndAsync();
         updatedBodyStream.Seek(0, SeekOrigin.Begin);
-        var jsonContent = GenerateODataResponseContent(fullUrl, responseBody);
+        var jsonContent = GenerateODataResponseContent(requestUrl, responseBody);
         stream.SetLength(0);
         using var writer = new StreamWriter(stream, leaveOpen: true);
         await writer.WriteAsync(jsonContent);
@@ -59,3 +59,5 @@ public class ODataApplyPatchMiddleware(RequestDelegate next)
         response.Body = originalResponseBodyStream;
     }
 }
+
+
