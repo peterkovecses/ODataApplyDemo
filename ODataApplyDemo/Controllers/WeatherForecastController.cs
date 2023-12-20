@@ -7,7 +7,6 @@ using ODataApplyDemo.Models;
 namespace ODataApplyDemo.Controllers;
 
 [CustomEnableQuery]
-//[EnableQuery]
 public class WeatherForecastController : ODataController
 {
     private static readonly string[] Summaries = {
@@ -15,6 +14,7 @@ public class WeatherForecastController : ODataController
     };
 
     // https://localhost:7109/odata/WeatherForecast?$apply=groupby((TemperatureC))
+    // https://localhost:7109/odata/WeatherForecast?$apply=groupby((TemperatureC),aggregate($count%20as%20Count))
     public IActionResult Get(ODataQueryOptions<WeatherForecast> queryOptions)
     {
         var forecast = Enumerable.Range(1, 5).Select(index => new WeatherForecast
