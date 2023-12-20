@@ -16,19 +16,102 @@ As you can see, the @odata.context and value properties are missing, instead the
 I saw that the issue had already been reported, but I needed a quick solution.
 I found that if the return value of the controller method is IEnumerable<T> or IQueriable<T> instead of IActionResult or ActionResult<T>, the response is in the correct format, but that was not an option for me, I had to find another solution. As a first step, I derived it from the EnableQueryAttribute class, and in the case of $apply, I added a marker key-value pair to the response header:
 
-![image](https://github.com/peterkovecses/ODataApplyDemo/assets/89272499/c406984f-fe15-46e1-8925-76506a5c7fd0)
+'''
+public class CustomEnableQuery : EnableQueryAttribute
+{
+    private HttpContext? _httpContext;
+
+    public override IQueryable ApplyQuery(IQueryable queryable, ODataQueryOptions queryOptions)
+    {
+        if (queryOptions.Apply is not null)
+        {
+            _httpContext!.Response.Headers.TryAdd(HeaderKeys.ODataApplyPatch, "1");
+        }
+        
+        return queryOptions.ApplyTo(queryable);
+    }
+
+    public override void ValidateQuery(HttpRequest request, ODataQueryOptions queryOptions)
+    {
+        _httpContext = request.HttpContext;
+        base.ValidateQuery(request, queryOptions);
+    }
+}
+'''
 
 Next, I created a wrapper class:
 
-![image](https://github.com/peterkovecses/ODataApplyDemo/assets/89272499/5ac154d3-955d-47a3-9ef3-004d3d4527ff)
+'''
+public class OdataResponseWrapper
+{
+    [JsonPropertyName("@odata.context")]
+    public required string Context { get; set; }
+
+    [JsonPropertyName("value")]
+    public required object[] Value { get; set; }
+}
+'''
 
 I monitor the marker header in a middleware, and if it appears, I wrap the value in the response body so that it complies with the OData protocol.
 
-![image](https://github.com/peterkovecses/ODataApplyDemo/assets/89272499/a9778261-e946-4600-a215-4959e89351d4)
+'''
+public class ODataApplyPatchMiddleware(RequestDelegate next)
+{
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var response = context.Response;
+        var originalResponseBodyStream = response.Body;
+        using var updatedBodyStream = new MemoryStream();
+        response.Body = updatedBodyStream;
 
-In addition, I only had to register the middleware:
+        await next(context);
 
-![image](https://github.com/peterkovecses/ODataApplyDemo/assets/89272499/0ffbc4d0-400d-4a58-92eb-dda1ad2bdc6a)
+        if (context.Response.Headers.TryGetValue(HeaderKeys.ODataApplyPatch, out _))
+        {
+            context.Response.Headers.Remove(HeaderKeys.ODataApplyPatch);
+            await UpdateResponseBodyAsync(response, updatedBodyStream , context.Request.FullUrl());
+        }
+
+        await FinalizeResponseBody(updatedBodyStream, originalResponseBodyStream, response);
+    }
+
+    private static async Task UpdateResponseBodyAsync(HttpResponse response, Stream updatedBodyStream, string requestUrl)
+    {
+        var stream = response.Body;
+        updatedBodyStream.Seek(0, SeekOrigin.Begin);
+        var responseBody = await new StreamReader(updatedBodyStream).ReadToEndAsync();
+        updatedBodyStream.Seek(0, SeekOrigin.Begin);
+        var jsonContent = GenerateODataResponseContent(requestUrl, responseBody);
+        stream.SetLength(0);
+        using var writer = new StreamWriter(stream, leaveOpen: true);
+        await writer.WriteAsync(jsonContent);
+        await writer.FlushAsync();
+        response.ContentLength = stream.Length;
+    }
+
+    private static string GenerateODataResponseContent(string requestUrl, string responseBody)
+    {
+        var value = JsonSerializer.Deserialize<object[]>(responseBody);
+        var odataResponse = new OdataResponseWrapper
+        {
+            Context = requestUrl,
+            Value = value!
+        };
+        var jsonContent = JsonSerializer.Serialize(odataResponse);
+        return jsonContent;
+    }
+
+    private static async Task FinalizeResponseBody(Stream updatedBodyStream, Stream originalResponseBodyStream,
+        HttpResponse response)
+    {
+        updatedBodyStream.Seek(0, SeekOrigin.Begin);
+        await updatedBodyStream.CopyToAsync(originalResponseBodyStream);
+        response.Body = originalResponseBodyStream;
+    }
+}
+'''
+
+In addition, I only had to register the middleware in the Program.cs.
 
 And the results:
 
