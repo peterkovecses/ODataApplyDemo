@@ -1,78 +1,75 @@
 ﻿using Microsoft.AspNetCore.OData.Query;
-using ODataApplyDemo.Models;
-using System.Text.Json;
+using System.Collections;
+using System.Linq.Expressions;
 using System.Text.Json.Serialization;
 
 namespace ODataApplyDemo.Attributes;
 
 public class CustomEnableQuery : EnableQueryAttribute
 {
+    private string _fullUrl = string.Empty;
+
     public override IQueryable ApplyQuery(IQueryable queryable, ODataQueryOptions queryOptions)
     {
         var query = queryOptions.ApplyTo(queryable);
-        if (queryOptions.Apply is null)
-        {
-            return query;
-        }
-        var jsonOptions = new JsonSerializerOptions
-        {
-            Converters = { new AggregationWrapperConverter() }
-        };
-        var jsonString = JsonSerializer.Serialize(query, jsonOptions);
-        var result = JsonSerializer.Deserialize<List<WeatherForecast>>(jsonString).AsQueryable();
+        if (queryOptions.Apply is null) return query;
+        var result = query.ToODataResponse(_fullUrl);
 
         return result;
     }
+
+    public override void ValidateQuery(HttpRequest request, ODataQueryOptions queryOptions)
+    {
+        _fullUrl = request.FullUrl();
+        base.ValidateQuery(request, queryOptions);
+    }
 }
 
-public class AggregationWrapperConverter : JsonConverter<object>
+public static class HttpRequestExtensions
 {
-    public override object Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    {
-        throw new NotImplementedException();
-    }
+    public static string FullUrl(this HttpRequest request)
+        => $"{request.Scheme}://{request.Host}{request.Path}{request.QueryString}";
+}
 
-    public override void Write(Utf8JsonWriter writer, object obj, JsonSerializerOptions options)
+public static class ODataExtensions
+{
+    public static ODataResponseHelper ToODataResponse(this IQueryable source, string url)
     {
-        var container = obj.GetType().GetProperty("GroupByContainer")?.GetValue(obj, null);
-        if (container != null)
+        ArgumentNullException.ThrowIfNull(source, nameof(source));
+
+        return new()
         {
-            string name = container.GetType().GetProperty("Name")?.GetValue(container, null)?.ToString();
-            var value = container.GetType().GetProperty("Value")?.GetValue(container, null);
-
-            if (name is not null && value is not null)
-            {
-                var x = new Dictionary<string, object>
-                {
-                    { name, value }
-                };
-                var jsonDict = Newtonsoft.Json.JsonConvert.SerializeObject(x);
-
-                using (var jsonDoc = JsonDocument.Parse(jsonDict))
-                {
-                    writer.WriteStartObject();
-
-                    foreach (var element in jsonDoc.RootElement.EnumerateObject())
-                    {
-                        writer.WritePropertyName(element.Name);
-                        switch (element.Value.ValueKind)
-                        {
-                            case JsonValueKind.Number:
-                                writer.WriteNumberValue(element.Value.GetDecimal());
-                                break;
-                            case JsonValueKind.String:
-                                writer.WriteStringValue(element.Value.GetString());
-                                break;
-                            // case további típusok
-                            default:
-                                // hibakezelést
-                                break;
-                        }
-                    }
-
-                    writer.WriteEndObject();
-                }
-            }
-        }
+            Context = url,
+            Value = source
+        };
     }
+}
+
+public class ODataResponseHelper : IQueryable
+{
+    public required string Context { get; set; }
+
+    public required IQueryable Value { get; set; }
+
+    public IEnumerator GetEnumerator()
+    {
+        yield return new OdataResponseWrapper
+        {
+            Context = this.Context,
+            Value = this.Value
+        };
+    }
+
+    public Type ElementType => typeof(ODataResponseHelper);
+    public Expression Expression => Expression.Constant(this);
+    public IQueryProvider Provider => Value.Provider;
+}
+
+public class OdataResponseWrapper
+{
+    [JsonPropertyName("@odata.context")]
+    public required string Context { get; set; }
+
+    [JsonPropertyName("value")]
+    public required IQueryable Value { get; set; }
 }
