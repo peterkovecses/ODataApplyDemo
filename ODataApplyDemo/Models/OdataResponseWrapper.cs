@@ -8,5 +8,5 @@ public class OdataResponseWrapper
     public required string Context { get; set; }
 
     [JsonPropertyName("value")]
-    public required IQueryable Value { get; set; }
+    public required object[] Value { get; set; }
 }

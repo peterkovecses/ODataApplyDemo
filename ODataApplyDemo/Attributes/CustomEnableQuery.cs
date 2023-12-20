@@ -1,23 +1,26 @@
 ﻿using Microsoft.AspNetCore.OData.Query;
-using ODataApplyDemo.Exceptions;
-using ODataApplyDemo.Extensions;
+using ODataApplyDemo.Constants;
 
 namespace ODataApplyDemo.Attributes;
 
 public class CustomEnableQuery : EnableQueryAttribute
 {
-    private string _fullUrl = string.Empty;
+    private HttpContext? _httpContext;
 
     public override IQueryable ApplyQuery(IQueryable queryable, ODataQueryOptions queryOptions)
     {
         var query = queryOptions.ApplyTo(queryable);
-        if (queryOptions.Apply is null) return query;
-        throw new ODataApplyException(query.ToODataResponse(_fullUrl));
+        if (queryOptions.Apply is not null)
+        {
+            _httpContext!.Response.Headers.TryAdd(HeaderKeys.ODataApplyPatch, "$1");
+        }
+        
+        return query;
     }
 
     public override void ValidateQuery(HttpRequest request, ODataQueryOptions queryOptions)
     {
-        _fullUrl = request.FullUrl();
+        _httpContext = request.HttpContext;
         base.ValidateQuery(request, queryOptions);
     }
 }
