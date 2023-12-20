@@ -9,13 +9,12 @@ public class CustomEnableQuery : EnableQueryAttribute
 
     public override IQueryable ApplyQuery(IQueryable queryable, ODataQueryOptions queryOptions)
     {
-        var query = queryOptions.ApplyTo(queryable);
         if (queryOptions.Apply is not null)
         {
             _httpContext!.Response.Headers.TryAdd(HeaderKeys.ODataApplyPatch, "$1");
         }
         
-        return query;
+        return queryOptions.ApplyTo(queryable);
     }
 
     public override void ValidateQuery(HttpRequest request, ODataQueryOptions queryOptions)
