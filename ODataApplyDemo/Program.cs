@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.OData;
 using Microsoft.OData.ModelBuilder;
+using ODataApplyDemo.Middlewares;
 using ODataApplyDemo.Models;
 using ODataApplyDemo.Swagger;
 
@@ -30,10 +31,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseMiddleware<ErrorHandlingMiddleware>();
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
