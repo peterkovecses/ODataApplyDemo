@@ -11,7 +11,7 @@ public class CustomEnableQuery : EnableQueryAttribute
     {
         if (queryOptions.Apply is not null)
         {
-            _httpContext!.Response.Headers.TryAdd(HeaderKeys.ODataApplyPatch, "$1");
+            _httpContext!.Response.Headers.TryAdd(HeaderKeys.ODataApplyPatch, "1");
         }
         
         return queryOptions.ApplyTo(queryable);
@@ -23,3 +23,4 @@ public class CustomEnableQuery : EnableQueryAttribute
         base.ValidateQuery(request, queryOptions);
     }
 }
+
