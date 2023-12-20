@@ -43,76 +43,82 @@ I found that if the return value of the controller method is IEnumerable<T> or I
 Next, I created a wrapper class:
 
 '''
-public class OdataResponseWrapper
-{
-    [JsonPropertyName("@odata.context")]
-    public required string Context { get; set; }
 
-    [JsonPropertyName("value")]
-    public required object[] Value { get; set; }
-}
+    public class OdataResponseWrapper
+    {
+        [JsonPropertyName("@odata.context")]
+        public required string Context { get; set; }
+    
+        [JsonPropertyName("value")]
+        public required object[] Value { get; set; }
+    }
 '''
 
 I monitor the marker header in a middleware, and if it appears, I wrap the value in the response body so that it complies with the OData protocol.
 
 '''
-public class ODataApplyPatchMiddleware(RequestDelegate next)
-{
-    public async Task InvokeAsync(HttpContext context)
+
+    public class ODataApplyPatchMiddleware(RequestDelegate next)
     {
-        var response = context.Response;
-        var originalResponseBodyStream = response.Body;
-        using var updatedBodyStream = new MemoryStream();
-        response.Body = updatedBodyStream;
-
-        await next(context);
-
-        if (context.Response.Headers.TryGetValue(HeaderKeys.ODataApplyPatch, out _))
+        public async Task InvokeAsync(HttpContext context)
         {
-            context.Response.Headers.Remove(HeaderKeys.ODataApplyPatch);
-            await UpdateResponseBodyAsync(response, updatedBodyStream , context.Request.FullUrl());
+            var response = context.Response;
+            var originalResponseBodyStream = response.Body;
+            using var updatedBodyStream = new MemoryStream();
+            response.Body = updatedBodyStream;
+    
+            await next(context);
+    
+            if (context.Response.Headers.TryGetValue(HeaderKeys.ODataApplyPatch, out _))
+            {
+                context.Response.Headers.Remove(HeaderKeys.ODataApplyPatch);
+                await UpdateResponseBodyAsync(response, updatedBodyStream , context.Request.FullUrl());
+            }
+    
+            await FinalizeResponseBody(updatedBodyStream, originalResponseBodyStream, response);
         }
-
-        await FinalizeResponseBody(updatedBodyStream, originalResponseBodyStream, response);
-    }
-
-    private static async Task UpdateResponseBodyAsync(HttpResponse response, Stream updatedBodyStream, string requestUrl)
-    {
-        var stream = response.Body;
-        updatedBodyStream.Seek(0, SeekOrigin.Begin);
-        var responseBody = await new StreamReader(updatedBodyStream).ReadToEndAsync();
-        updatedBodyStream.Seek(0, SeekOrigin.Begin);
-        var jsonContent = GenerateODataResponseContent(requestUrl, responseBody);
-        stream.SetLength(0);
-        using var writer = new StreamWriter(stream, leaveOpen: true);
-        await writer.WriteAsync(jsonContent);
-        await writer.FlushAsync();
-        response.ContentLength = stream.Length;
-    }
-
-    private static string GenerateODataResponseContent(string requestUrl, string responseBody)
-    {
-        var value = JsonSerializer.Deserialize<object[]>(responseBody);
-        var odataResponse = new OdataResponseWrapper
+    
+        private static async Task UpdateResponseBodyAsync(HttpResponse response, Stream updatedBodyStream, string requestUrl)
         {
-            Context = requestUrl,
-            Value = value!
-        };
-        var jsonContent = JsonSerializer.Serialize(odataResponse);
-        return jsonContent;
+            var stream = response.Body;
+            updatedBodyStream.Seek(0, SeekOrigin.Begin);
+            var responseBody = await new StreamReader(updatedBodyStream).ReadToEndAsync();
+            updatedBodyStream.Seek(0, SeekOrigin.Begin);
+            var jsonContent = GenerateODataResponseContent(requestUrl, responseBody);
+            stream.SetLength(0);
+            using var writer = new StreamWriter(stream, leaveOpen: true);
+            await writer.WriteAsync(jsonContent);
+            await writer.FlushAsync();
+            response.ContentLength = stream.Length;
+        }
+    
+        private static string GenerateODataResponseContent(string requestUrl, string responseBody)
+        {
+            var value = JsonSerializer.Deserialize<object[]>(responseBody);
+            var odataResponse = new OdataResponseWrapper
+            {
+                Context = requestUrl,
+                Value = value!
+            };
+            var jsonContent = JsonSerializer.Serialize(odataResponse);
+            return jsonContent;
+        }
+    
+        private static async Task FinalizeResponseBody(Stream updatedBodyStream, Stream originalResponseBodyStream,
+            HttpResponse response)
+        {
+            updatedBodyStream.Seek(0, SeekOrigin.Begin);
+            await updatedBodyStream.CopyToAsync(originalResponseBodyStream);
+            response.Body = originalResponseBodyStream;
+        }
     }
-
-    private static async Task FinalizeResponseBody(Stream updatedBodyStream, Stream originalResponseBodyStream,
-        HttpResponse response)
-    {
-        updatedBodyStream.Seek(0, SeekOrigin.Begin);
-        await updatedBodyStream.CopyToAsync(originalResponseBodyStream);
-        response.Body = originalResponseBodyStream;
-    }
-}
 '''
 
-In addition, I only had to register the middleware in the Program.cs.
+In addition, I only had to register the middleware in the Program.cs:
+'''
+
+    app.UseMiddleware<ODataApplyPatchMiddleware>();
+'''
 
 And the results:
 
