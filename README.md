@@ -13,8 +13,8 @@ The responses:
 
 As you can see, the @odata.context and value properties are missing, instead the value of the value property is returned directly.
 
-I saw that the issue had already been reported, but I needed a quick solution. 
-As a first step, I derived it from the EnableQueryAttribute class, and in the case of $apply, I added a marker key-value pair to the response header:
+I saw that the issue had already been reported, but I needed a quick solution.
+I found that if the return value of the controller method is IEnumerable<T> or IQueriable<T> instead of IActionResult or ActionResult<T>, the response is in the correct format, but that was not an option for me, I had to find another solution. As a first step, I derived it from the EnableQueryAttribute class, and in the case of $apply, I added a marker key-value pair to the response header:
 
 ![image](https://github.com/peterkovecses/ODataApplyDemo/assets/89272499/c406984f-fe15-46e1-8925-76506a5c7fd0)
 
