@@ -9,20 +9,19 @@ public class ODataApplyPatchMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext context)
     {
-        var response = context.Response;
-        var originalResponseBodyStream = response.Body;
+        var originalResponseBodyStream = context.Response.Body;
         using var updatedBodyStream = new MemoryStream();
-        response.Body = updatedBodyStream;
+        context.Response.Body = updatedBodyStream;
 
         await next(context);
 
         if (context.Response.Headers.TryGetValue(HeaderKeys.ODataApplyPatch, out _))
         {
             context.Response.Headers.Remove(HeaderKeys.ODataApplyPatch);
-            await UpdateResponseBodyAsync(response, updatedBodyStream , context.Request.FullUrl());
+            await UpdateResponseBodyAsync(context.Response, updatedBodyStream , context.Request.FullUrl());
         }
 
-        await FinalizeResponseBody(updatedBodyStream, originalResponseBodyStream, response);
+        await FinalizeResponseBody(updatedBodyStream, originalResponseBodyStream, context.Response);
     }
 
     private static async Task UpdateResponseBodyAsync(HttpResponse response, Stream updatedBodyStream, string requestUrl)
@@ -32,7 +31,6 @@ public class ODataApplyPatchMiddleware(RequestDelegate next)
         var responseBody = await new StreamReader(updatedBodyStream).ReadToEndAsync();
         updatedBodyStream.Seek(0, SeekOrigin.Begin);
         var jsonContent = GenerateODataResponseContent(requestUrl, responseBody);
-        stream.SetLength(0);
         using var writer = new StreamWriter(stream, leaveOpen: true);
         await writer.WriteAsync(jsonContent);
         await writer.FlushAsync();
