@@ -31,7 +31,7 @@ public class ODataApplyPatchMiddleware(RequestDelegate next)
         var responseBody = await new StreamReader(updatedBodyStream).ReadToEndAsync();
         updatedBodyStream.Seek(0, SeekOrigin.Begin);
         var jsonContent = GenerateODataResponseContent(requestUrl, responseBody);
-        using var writer = new StreamWriter(stream, leaveOpen: true);
+        await using var writer = new StreamWriter(stream, leaveOpen: true);
         await writer.WriteAsync(jsonContent);
         await writer.FlushAsync();
         response.ContentLength = stream.Length;
@@ -45,8 +45,8 @@ public class ODataApplyPatchMiddleware(RequestDelegate next)
             Context = requestUrl,
             Value = value!
         };
-        var jsonContent = JsonSerializer.Serialize(odataResponse);
-        return jsonContent;
+        
+        return JsonSerializer.Serialize(odataResponse);
     }
 
     private static async Task FinalizeResponseBody(Stream updatedBodyStream, Stream originalResponseBodyStream,
