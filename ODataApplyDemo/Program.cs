@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.OData;
 using Microsoft.OData.ModelBuilder;
 using ODataApplyDemo.Middlewares;
 using ODataApplyDemo.Models;
-using ODataApplyDemo.Swagger;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,10 +16,7 @@ builder.Services.AddControllers().AddOData(
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
-{
-    options.OperationFilter<IgnoreODataQueryOperationFilter>();
-});
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
