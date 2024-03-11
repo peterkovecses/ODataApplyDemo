@@ -122,7 +122,8 @@ In addition, I only had to register the middleware in the Program.cs:
 
 And the results:
 
-![image](https://github.com/peterkovecses/ODataApplyDemo/assets/89272499/a1279e81-dc52-4281-a248-637267697378)
-![image](https://github.com/peterkovecses/ODataApplyDemo/assets/89272499/da13139b-76f5-4a43-9ea6-d1f60243e744)
+![image](https://github.com/peterkovecses/ODataApplyDemo/assets/89272499/2146f464-a630-4a5f-9839-8cc91bed4c8a)
+![image](https://github.com/peterkovecses/ODataApplyDemo/assets/89272499/a9d78e6e-ed97-4fd6-9f67-7b8d4296ba30)
+
 
 
