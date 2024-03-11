@@ -7,6 +7,9 @@ namespace ODataApplyDemo.Middlewares;
 
 public class ODataApplyPatchMiddleware(RequestDelegate next)
 {
+    public const string QueryDelimiter = "?";
+    public const string ForwardSlash = "/";
+
     public async Task InvokeAsync(HttpContext context)
     {
         var originalResponseBodyStream = context.Response.Body;
@@ -40,12 +43,17 @@ public class ODataApplyPatchMiddleware(RequestDelegate next)
     private static string GenerateODataResponseContent(string requestUrl, string responseBody)
     {
         var value = JsonSerializer.Deserialize<object[]>(responseBody);
+        var uriWithoutQuery = requestUrl.Contains(QueryDelimiter) ? requestUrl[..requestUrl.IndexOf(QueryDelimiter, StringComparison.Ordinal)] : requestUrl;
+        var urlParts = uriWithoutQuery.Split(ForwardSlash);
+        var endpoint = urlParts.Last();
+        var url = string.Join(ForwardSlash, urlParts.Take(urlParts.Length - 1));
+
         var odataResponse = new OdataResponseWrapper
         {
-            Context = requestUrl,
+            Context = $"{url}/$metadata#{endpoint}",
             Value = value!
         };
-        
+
         return JsonSerializer.Serialize(odataResponse);
     }
 
